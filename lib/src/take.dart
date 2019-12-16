@@ -1,31 +1,40 @@
 import 'package:built_redux_saga/built_redux_saga.dart';
 import 'package:built_redux/built_redux.dart';
 
-Runnable take<PayloadType>(ActionName<PayloadType> actionName, [RunnableCallback<Action<PayloadType>> success, RunnableCallback error]) {
-  return _Take(actionName, success, error);
+
+
+Runnable take<PayloadType>(ActionName<PayloadType> actionName, [Result<Action<PayloadType>> result]) {
+  return _Take(actionName, result?.onSuccess, result?.onError);
 }
 
 class _Take<PayloadType> extends RunnableFuture<Action<PayloadType>> {
   final ActionName<PayloadType> actionName;
-  _Take(this.actionName, RunnableCallback<Action<PayloadType>> success, RunnableCallback error) : super(success, error);
+  _Take(this.actionName, RunnableCallback<Action<PayloadType>> success, Function error) : super(success, error);
 
   @override
   void initHandler(SagaMiddlewareManager sagaManager) {
     super.initHandler(sagaManager);
     sagaManager.take(actionName).then(this.successHandler).catchError(this.errorHandler);
   }
+
+  @override
+  get errorMessage => "Failed to execute take transaction.";
 }
 
-Runnable takeEverything([RunnableCallback<Action<Object>> success, RunnableCallback error]) {
-  return _TakeEverything(success, error);
+Runnable takeEverything([Result result]) {
+  return _TakeEverything(result?.onSuccess, result?.onError);
 }
+
 
 class _TakeEverything extends RunnableFuture<Action<Object>> {
-  _TakeEverything(RunnableCallback<Action<Object>> success, RunnableCallback error) : super(success, error);
+  _TakeEverything(RunnableCallback<Action<Object>> success, Function error) : super(success, error);
 
   @override
   void initHandler(SagaMiddlewareManager sagaManager) {
     super.initHandler(sagaManager);
     sagaManager.takeEverything().then(this.successHandler).catchError(this.errorHandler);
   }
+
+  @override
+  get errorMessage => "Failed to execute take everything transaction.";
 }

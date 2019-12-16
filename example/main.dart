@@ -35,20 +35,17 @@ main() async {
 
 Iterable<Runnable> logSaga() sync* {
   while (true) {
-    Action<String> action;
-    yield takeEverything((result) {
-      action = result;
-    });
-    print("log ${action}");
+    Result result = Result();
+    yield takeEverything(result);
+    print("log ${result.value}");
   }
 }
+
 Iterable<Runnable> delaySaga() sync* {
   while (true) {
-    Action<String> action;
-    yield take(AppActionsNames.test, (result) {
-      action = result;
-    });
-    print("taken ${action}");
+    Result<Action<String>> result = Result();
+    yield take(AppActionsNames.test, result);
+    print("taken ${result.value}");
 
     print("before delay test");
     yield delay(Duration(seconds: 1));
@@ -60,11 +57,9 @@ Iterable<Runnable> delaySaga() sync* {
 
 
 Iterable<Runnable> testSaga() sync* {
-  Action<String> action;
-  yield take(AppActionsNames.test, (result) {
-    action = result;
-  });
-  print("in test taken ${action}");
+  Result<Action<String>> result = Result();
+  yield take(AppActionsNames.test, result);
+  print("in test taken ${result.value}");
   
   yield all([reportedSaga(test1(), "test1 task"), reportedSaga(test2(), "test2 task")]);
   
@@ -91,17 +86,19 @@ Iterable<Runnable> test1() sync* {
   print("entering test1");
 
     try {
-      Action<String> action;
-      yield take(AppActionsNames.test, (result) { 
-        action = result;
-      });
-      yield put(AppActionsNames.log, "dispatching: ${action}");
+      Result<Action<String>> action = Result();
+      yield take(AppActionsNames.test,action);
+      yield put(AppActionsNames.log, "dispatching: ${action.value}");
 
-      String value;
-      yield call(getSomething(), (result) {
-        value = result;
-      });
-      yield put(AppActionsNames.log, "value: ${value}");
+      Result<String> something = Result();
+      yield call(getSomething(), something);
+      yield put(AppActionsNames.log, "value: ${something.value}");
+
+      Result result = Result();
+      yield call(raiseError(), result);
+      if(result.hasError) {
+        yield put(AppActionsNames.log, "error: ${result.error}");
+      }
     } catch (e) {
       yield put(AppActionsNames.error, e);
     }
@@ -119,25 +116,27 @@ Iterable<Runnable> test2() sync* {
   }
 
 
-  AppState state;
-  yield select<AppState>((result) {
-    state = result;
-  });
-  if(state != null) {
-    yield put(AppActionsNames.log, "state: ${state}");
+  Result<AppState> appState = Result();
+  yield select<AppState>(appState);
+  if(appState.value != null) {
+    yield put(AppActionsNames.log, "state: ${appState.value}");
   }
 
-  AppActions actions;
-  yield select<AppActions>((result) {
-    actions = result;
-  });
-
-  if(actions != null) {
-    yield put(AppActionsNames.log, "action: ${actions}");
+  Result<AppActions> actions = Result();
+  yield select<AppActions>(actions);
+  if(actions.hasValue) {
+    yield put(AppActionsNames.log, "action: ${actions.value}");
   }
+
   yield put(AppActionsNames.log, "exiting test2");
 }
 
 Future<String> getSomething() {
   return Future.delayed(Duration(seconds: 2), () => "This is a delayed API response");
+}
+
+
+Future raiseError() async {
+  await Future.delayed(Duration(seconds: 2));
+  throw "this is an error.";
 }
